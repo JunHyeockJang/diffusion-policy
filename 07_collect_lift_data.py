@@ -17,6 +17,9 @@ obs = env.reset()
 
 phase = "above"
 
+grasp_steps = 0
+lift_steps = 0
+
 for step in range(500):
     eef_pos = obs["robot0_eef_pos"]
     cube_pos = obs["cube_pos"]
@@ -29,6 +32,7 @@ for step in range(500):
         error = target - eef_pos
 
         action[:3] = np.clip(error * 10, -1.0, 1.0)
+        action[6] = -1.0
 
         if np.linalg.norm(error) < 0.02:
             phase = "down"
@@ -39,6 +43,7 @@ for step in range(500):
         error = target - eef_pos
 
         action[:3] = np.clip(error * 10, -1.0, 1.0)
+        action[6] = -1.0
 
         if np.linalg.norm(error) < 0.015:
             phase = "grasp"
@@ -47,13 +52,19 @@ for step in range(500):
     elif phase == "grasp":
         action[6] = 1.0  # 그리퍼 닫기
 
-        if step % 50 == 0:  # 그리퍼 닫는 데 시간이 걸리므로 몇 단계 기다림
+        grasp_steps += 1
+        if grasp_steps >= 30:  # 그리퍼 닫는 데 시간이 걸리므로 몇 단계 기다림
             phase = "lift"
 
     # 큐브 들어올리기
     elif phase == "lift":
         action[2] = 0.5
         action[6] = 1.0  # 그리퍼 닫기
+
+        lift_steps += 1
+
+        if lift_steps >= 50:
+            break
 
     state = np.concatenate(
         [
@@ -78,6 +89,6 @@ actions = np.array(actions)
 
 np.savez("lift_dataset.npz", observations=observations, actions=actions)
 
-print(f"observations: {observations}, actions: {actions}")
+# print(f"observations: {observations}, actions: {actions}")
 
 env.close()
